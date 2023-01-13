@@ -44,6 +44,8 @@
 cmake_minimum_required (VERSION 3.0.0)
 project (CHAI3D)
 
+add_definitions(-w)
+set(CMAKE_CXX_STANDARD 14) # for smart pointers
 # version info
 file (READ ${PROJECT_SOURCE_DIR}/src/version VERSION)
 STRING (REGEX REPLACE ".*MAJOR=([0-9]+).*" "\\1" MAJOR_VERSION "${VERSION}")
@@ -83,6 +85,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL     ${PROJECT_SOURCE_DIR}/bin/${O
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE        ${PROJECT_SOURCE_DIR}/bin/${OS}-${ARCH})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${PROJECT_SOURCE_DIR}/bin/${OS}-${ARCH})
 
+set(OpenGL_GL_PREFERENCE GLVND)  # GLVND or LEGACY
 # OpenGL dependency
 find_package (OpenGL REQUIRED)
 include_directories (OPENGL_INCLUDE_DIR)
@@ -232,6 +235,11 @@ endif ()
 # utilities
 if (EXISTS ${PROJECT_SOURCE_DIR}/utils)
   add_subdirectory (${PROJECT_SOURCE_DIR}/utils)
+endif ()
+
+# BULLET
+if (EXISTS ${PROJECT_SOURCE_DIR}/modules/BULLET)
+  add_subdirectory (${PROJECT_SOURCE_DIR}/modules/BULLET)
 endif ()
 
 
