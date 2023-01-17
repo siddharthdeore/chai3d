@@ -159,10 +159,10 @@ namespace chai3d
         m_specifications.m_sensedPosition = true;
 
         // does your device provide sensed rotations (i.e stylus)?
-        m_specifications.m_sensedRotation = false;
+        m_specifications.m_sensedRotation = true;
 
         // does your device provide a gripper which can be sensed?
-        m_specifications.m_sensedGripper = false;
+        m_specifications.m_sensedGripper = true;
 
         // is you device actuated on the translation degrees of freedom?
         m_specifications.m_actuatedPosition = true;
@@ -550,7 +550,7 @@ namespace chai3d
         // *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
 
         // return gripper angle in radian
-        a_angle = 0.0; // a_angle = getGripperAngleInRadianFromMyDevice();
+        a_angle = cDegToRad(30.0*(pkt_joystick_to_master_.axis[2]/32768.0)); // a_angle = getGripperAngleInRadianFromMyDevice();
 
         // estimate gripper velocity
         estimateGripperVelocity(a_angle);
@@ -621,12 +621,14 @@ namespace chai3d
         double gf = a_gripperForce;
 
         // *** INSERT YOUR CODE HERE ***
+        /*
         if ((fx * fx + fy * fy + fz * fz) > 0)
         {
             std::cout << std::fixed << std::setprecision(6)
                       << "F = (" << fx << " " << fy << " " << fz
                       << ") , Tau = (" << tx << " " << ty << " " << tz << ") , gf = " << gf << std::endl;
         }
+        */
 
         // setForceToMyDevice(fx, fy, fz);
         // setTorqueToMyDevice(tx, ty, tz);

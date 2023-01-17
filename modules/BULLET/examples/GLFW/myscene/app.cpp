@@ -304,7 +304,8 @@ int main(int argc, char* argv[])
     // create a tool (gripper or pointer)
     if (hapticDeviceInfo.m_actuatedGripper)
     {
-        tool = new cToolCursor(bulletWorld);
+        //tool = new cToolGripper(bulletWorld);
+        tool = new cToolTrioGripper(bulletWorld);
     }
     else
     {

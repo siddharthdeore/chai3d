@@ -1,49 +1,5 @@
-//==============================================================================
-/*
-    Software License Agreement (BSD License)
-    Copyright (c) 2003-2016, CHAI3D.
-    (www.chai3d.org)
-
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-    * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials provided
-    with the distribution.
-
-    * Neither the name of CHAI3D nor the names of its contributors may
-    be used to endorse or promote products derived from this software
-    without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE. 
-
-    \author    <http://www.chai3d.org>
-    \author    Francois Conti
-    \author    Federico Barbagli
-    \version   3.2.0 $Rev: 1869 $
-*/
-//==============================================================================
-
 //------------------------------------------------------------------------------
-#include "tools/CToolGripper.h"
+#include "tools/CToolTrioGripper.h"
 #include "graphics/CTriangleArray.h"
 //------------------------------------------------------------------------------
 
@@ -53,12 +9,12 @@ namespace chai3d {
 
 //==============================================================================
 /*!
-    Constructor of cToolGripper.
+    Constructor of cToolTrioGripper.
 
     \param  a_parentWorld  World in which the tool will operate.
 */
 //==============================================================================
-cToolGripper::cToolGripper(cWorld* a_parentWorld):cGenericTool(a_parentWorld)
+cToolTrioGripper::cToolTrioGripper(cWorld* a_parentWorld):cGenericTool(a_parentWorld)
 {
     // default gripper workspace
     m_gripperWorkspaceScale = 1.0;
@@ -67,24 +23,29 @@ cToolGripper::cToolGripper(cWorld* a_parentWorld):cGenericTool(a_parentWorld)
     m_hapticPointThumb = new cHapticPoint(this);
     m_hapticPoints.push_back(m_hapticPointThumb);
 
-    // create a haptic point contact for the finger
-    m_hapticPointFinger = new cHapticPoint(this);
-    m_hapticPoints.push_back(m_hapticPointFinger);
+    // create a haptic point contact for the finger0
+    m_hapticPointIndexFinger = new cHapticPoint(this);
+    m_hapticPoints.push_back(m_hapticPointIndexFinger);
+
+    // create a haptic point contact for the finger1
+    m_hapticPointMiddleFinger = new cHapticPoint(this);
+    m_hapticPoints.push_back(m_hapticPointMiddleFinger);
 
     // show proxy spheres only
-    setShowContactPoints(true, false);
+    setShowContactPoints(true, true);
 }
 
 
 //==============================================================================
 /*!
-    Destructor of cToolGripper.
+    Destructor of cToolTrioGripper.
 */
 //==============================================================================
-cToolGripper::~cToolGripper()
+cToolTrioGripper::~cToolTrioGripper()
 {
     delete  m_hapticPointThumb;
-    delete  m_hapticPointFinger;
+    delete  m_hapticPointIndexFinger;
+    delete  m_hapticPointMiddleFinger;
 }
 
 
@@ -94,48 +55,37 @@ cToolGripper::~cToolGripper()
     objects located inside the virtual world.
 */
 //==============================================================================
-void cToolGripper::computeInteractionForces()
+void cToolTrioGripper::computeInteractionForces()
 {
     // convert the angle of the gripper into a position in device coordinates. 
     // this value is device dependent.
-    double gripperPositionFinger = 0.0;
-    double gripperPositionThumb  = 0.0;
+    double gripperPositionFinger0 = 0.0; // index fingure position
+    double gripperPositionFinger1 = 0.0; // middle fingure position
+    double gripperPositionThumb  = 0.0;  // thumb position
 
-    if (m_hapticDevice->m_specifications.m_model == C_HAPTIC_DEVICE_OMEGA_7)
-    {
-        gripperPositionFinger = 0.040 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
-        gripperPositionThumb  = 0.040 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
-    }
-    else if (m_hapticDevice->m_specifications.m_model == C_HAPTIC_DEVICE_SIGMA_7)
-    {
-        gripperPositionFinger = 0.040 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
-        gripperPositionThumb  = 0.040 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
-    }
-    else if (m_hapticDevice->m_specifications.m_model == C_HAPTIC_DEVICE_XTH_2)
-    {
-        gripperPositionFinger = 0.040 * cSinRad(m_gripperAngle + cDegToRad(1.0));
-        gripperPositionThumb = 0.040 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
-    }
-    else
-    {
-        gripperPositionFinger = 0.100 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
-        gripperPositionThumb  = 0.100 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
-    }
+    gripperPositionFinger0 = 0.100 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
+    gripperPositionFinger1 = 0.100 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
+    gripperPositionThumb  = 0.100 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
 
     // compute new position of thumb and finger 
     cVector3d lineFingerThumb = getGlobalRot().getCol1();    
-    cVector3d pFinger = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger * lineFingerThumb;
+    cVector3d lineFingerMid = getGlobalRot().getCol0();
+
+    cVector3d pFinger0 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger0 * lineFingerThumb;
+    cVector3d pFinger1 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger1 * lineFingerMid;
     cVector3d pThumb  = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionThumb  * lineFingerThumb;
 
-    cVector3d posFinger, posThumb;
+    cVector3d posFinger0, posFinger1, posThumb;
     if (m_hapticDevice->m_specifications.m_rightHand)
     {
-        posFinger = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger));
+        posFinger0 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger0));
+        posFinger1 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger1));
         posThumb = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pThumb));
     }
     else
     {
-        posFinger = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (-1.0 * pFinger));
+        posFinger0 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger0));
+        posFinger1 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger1));
         posThumb  = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (-1.0 * pThumb));
     }
 
@@ -145,7 +95,12 @@ void cToolGripper::computeInteractionForces()
                                                                         m_deviceGlobalLinVel, 
                                                                         m_deviceGlobalAngVel);
 
-    cVector3d forceFinger = m_hapticPointFinger->computeInteractionForces(posFinger, 
+    cVector3d forceFinger0 = m_hapticPointIndexFinger->computeInteractionForces(posFinger0, 
+                                                                          m_deviceGlobalRot, 
+                                                                          m_deviceGlobalLinVel, 
+                                                                          m_deviceGlobalAngVel);
+
+    cVector3d forceFinger1 = m_hapticPointMiddleFinger->computeInteractionForces(posFinger1, 
                                                                           m_deviceGlobalRot, 
                                                                           m_deviceGlobalLinVel, 
                                                                           m_deviceGlobalAngVel);
@@ -157,7 +112,7 @@ void cToolGripper::computeInteractionForces()
     {
         scl = 1.0 / factor;
     }
-    cVector3d torque = scl * cAdd(cCross(cSub(posThumb, m_deviceGlobalPos), forceThumb), cCross(cSub(posFinger, m_deviceGlobalPos), forceFinger));
+    cVector3d torque = scl * cAdd(cCross(cSub(posThumb, m_deviceGlobalPos), forceThumb), cCross(cSub(posFinger0, m_deviceGlobalPos), forceFinger0), cCross(cSub(posFinger1, m_deviceGlobalPos), forceFinger1));
 
     // compute gripper force
     double gripperForce = 0.0;
@@ -165,11 +120,11 @@ void cToolGripper::computeInteractionForces()
     if ((m_hapticDevice->m_specifications.m_model == C_HAPTIC_DEVICE_OMEGA_7) ||
         (m_hapticDevice->m_specifications.m_model == C_HAPTIC_DEVICE_SIGMA_7))
     {
-        cVector3d dir = posFinger - posThumb;
+        cVector3d dir = posFinger0 - posThumb;
         if (dir.length() > 0.00001) 
         {
             dir.normalize ();
-            cVector3d force = cProject (forceFinger, dir);
+            cVector3d force = cProject (forceFinger0, dir);
             gripperForce = force.length();
             if (force.length() > 0.001) 
             {
@@ -185,7 +140,7 @@ void cToolGripper::computeInteractionForces()
     double gripperDamping = -0.1 * m_hapticDevice->m_specifications.m_maxGripperAngularDamping * gripperAngularVelocity;
 
     // finalize forces, torques and gripper force
-    cVector3d globalForce = forceThumb + forceFinger;
+    cVector3d globalForce = forceThumb + forceFinger0 + forceFinger1;
     cVector3d globalTorque = torque;
     gripperForce = gripperForce + gripperDamping;
 
@@ -203,7 +158,7 @@ void cToolGripper::computeInteractionForces()
     \param  a_options  Rendering options.
 */
 //==============================================================================
-void cToolGripper::render(cRenderOptions& a_options)
+void cToolTrioGripper::render(cRenderOptions& a_options)
 {
     ///////////////////////////////////////////////////////////////////////
     // render haptic points

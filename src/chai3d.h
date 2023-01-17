@@ -198,6 +198,7 @@
 #include "tools/CHapticPoint.h"
 #include "tools/CToolCursor.h"
 #include "tools/CToolGripper.h"
+#include "tools/CToolTrioGripper.h"
 
 
 //---------------------------------------------------------------------------
