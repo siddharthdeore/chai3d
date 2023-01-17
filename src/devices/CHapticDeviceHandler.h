@@ -44,6 +44,7 @@
 //------------------------------------------------------------------------------
 #ifndef CHapticDeviceHandlerH
 #define CHapticDeviceHandlerH
+#define C_ENABLE_CUSTOM_DEVICE_SUPPORT
 //------------------------------------------------------------------------------
 #include "devices/CGenericHapticDevice.h"
 //------------------------------------------------------------------------------

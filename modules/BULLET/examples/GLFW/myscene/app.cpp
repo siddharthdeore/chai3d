@@ -1,46 +1,3 @@
-//===========================================================================
-/*
-    Software License Agreement (BSD License)
-    Copyright (c) 2003-2016, CHAI3D
-    (www.chai3d.org)
-
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-    * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials provided
-    with the distribution.
-
-    * Neither the name of CHAI3D nor the names of its contributors may
-    be used to endorse or promote products derived from this software
-    without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE. 
-
-    \author    <http://www.chai3d.org>
-    \author    Francois Conti
-    \version   3.2.0 $Rev: 1928 $
-*/
-//===========================================================================
-
 //---------------------------------------------------------------------------
 #include "chai3d.h"
 //---------------------------------------------------------------------------
@@ -51,6 +8,7 @@ using namespace std;
 //---------------------------------------------------------------------------
 #include "CBullet.h"
 //---------------------------------------------------------------------------
+
 #include <chrono>
 #include <thread>
 //---------------------------------------------------------------------------
@@ -95,9 +53,6 @@ cGenericTool* tool;
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
 
-// a label to display information about the controller
-cLabel* labelInfo;
-
 
 //---------------------------------------------------------------------------
 // BULLET MODULE VARIABLES
@@ -110,16 +65,15 @@ cBulletWorld* bulletWorld;
 cBulletBox* bulletBox0;
 cBulletBox* bulletBox1;
 cBulletBox* bulletBox2;
+cBulletBox* bulletBox3;
 
-// bullet hinges
-btHingeConstraint* hinge0;
-btHingeConstraint* hinge2;
-
-// ODE controller mode
-bool controllerEnabled = false;
-
-// ODE desired joint angle
-double angPosDes = 0.0;
+// bullet static walls and ground
+cBulletStaticPlane* bulletInvisibleWall1;
+cBulletStaticPlane* bulletInvisibleWall2;
+cBulletStaticPlane* bulletInvisibleWall3;
+cBulletStaticPlane* bulletInvisibleWall4;
+cBulletStaticPlane* bulletInvisibleWall5;
+cBulletStaticPlane* bulletGround;
 
 
 //---------------------------------------------------------------------------
@@ -177,16 +131,6 @@ void updateHaptics(void);
 void close(void);
 
 
-//===========================================================================
-/*
-    DEMO:    07-bullet-articulations.cpp
-
-    This example illustrates the use of the Bullet framework for simulating
-    haptic interaction with dynamic bodies. In this scene we create several
-    objects that illustrate the use of hinges.
- */
-//===========================================================================
-
 int main(int argc, char* argv[])
 {
     //-----------------------------------------------------------------------
@@ -196,14 +140,10 @@ int main(int argc, char* argv[])
     cout << endl;
     cout << "-----------------------------------" << endl;
     cout << "CHAI3D" << endl;
-    cout << "Demo: 07-ODE-articulations" << endl;
-    cout << "Copyright 2003-2016" << endl;
+    cout << "Demo: test bullet " << endl;
     cout << "-----------------------------------" << endl << endl << endl;
     cout << "Keyboard Options:" << endl << endl;
     cout << "[g] - Enable/Disable gravity" << endl;
-    cout << "[c] - Enable/Disable position controller" << endl;
-    cout << "[1] - decrease desired position" << endl;
-    cout << "[2] - increase desired position" << endl;
     cout << "[f] - Enable/Disable full screen mode" << endl;
     cout << "[m] - Enable/Disable vertical mirroring" << endl;
     cout << "[q] - Exit application" << endl;
@@ -247,7 +187,7 @@ int main(int argc, char* argv[])
     }
 
     // create display context
-    window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
+    window = glfwCreateWindow(w, h, "Haptics", NULL, NULL);
     if (!window)
     {
         cout << "failed to create window" << endl;
@@ -301,7 +241,7 @@ int main(int argc, char* argv[])
 
     // position and orient the camera
     camera->set(cVector3d (2.5, 0.0, 0.3),    // camera position (eye)
-                cVector3d (0.0, 0.0, 0.0),    // lookat position (target)
+                cVector3d (0.0, 0.0,-0.5),    // lookat position (target)
                 cVector3d (0.0, 0.0, 1.0));   // direction of the "up" vector
 
     // set the near and far clipping planes of the camera
@@ -327,19 +267,20 @@ int main(int argc, char* argv[])
     light->setEnabled(true);
 
     // position the light source
-    light->setLocalPos(1.2, 0.0, 1.2);
+    light->setLocalPos(0.0, 0.0, 1.2);
 
     // define the direction of the light beam
-    light->setDir(-1.0, 0.0, -1.0);
+    light->setDir(0.0, 0.0,-1.0);
 
-    // set uniform concentration level of light
+    // set uniform concentration level of light 
     light->setSpotExponent(0.0);
 
     // enable this light source to generate shadows
     light->setShadowMapEnabled(true);
 
     // set the resolution of the shadow map
-    light->m_shadowMap->setQualityMedium();
+    light->m_shadowMap->setQualityLow();
+    //light->m_shadowMap->setQualityMedium();
 
     // set light cone half angle
     light->setCutOffAngleDeg(45);
@@ -357,11 +298,13 @@ int main(int argc, char* argv[])
 
     // retrieve information about the current haptic device
     cHapticDeviceInfo hapticDeviceInfo = hapticDevice->getSpecifications();
-
+    std::cout << "-------------------------------" << std::endl;
+    std::cout << hapticDeviceInfo.m_modelName << std::endl;
+    std::cout << "-------------------------------" << std::endl;
     // create a tool (gripper or pointer)
     if (hapticDeviceInfo.m_actuatedGripper)
     {
-        tool = new cToolGripper(bulletWorld);
+        tool = new cToolCursor(bulletWorld);
     }
     else
     {
@@ -378,7 +321,7 @@ int main(int argc, char* argv[])
     tool->setWorkspaceRadius(1.3);
 
     // define a radius for the virtual tool contact points (sphere)
-    double toolRadius = 0.06;
+    double toolRadius = 0.02;
     tool->setRadius(toolRadius, toolRadius);
 
     // enable if objects in the scene are going to rotate of translate
@@ -407,11 +350,6 @@ int main(int argc, char* argv[])
     labelRates->m_fontColor.setBlack();
     camera->m_frontLayer->addChild(labelRates);
 
-    // create a label to display information about the controller
-    labelInfo = new cLabel(font);
-    labelInfo->m_fontColor.setBlack();
-    camera->m_frontLayer->addChild(labelInfo);
-
 
     //-----------------------------------------------------------------------
     // SETUP BULLET WORLD AND OBJECTS
@@ -435,72 +373,130 @@ int main(int argc, char* argv[])
     //////////////////////////////////////////////////////////////////////////
     // 3 BULLET BLOCKS
     //////////////////////////////////////////////////////////////////////////
+    double size = 0.4;
 
     // create three objects that are added to the world
-    bulletBox0 = new cBulletBox(bulletWorld, 0.4, 0.1, 0.8);
+    bulletBox0 = new cBulletBox(bulletWorld, size, size, size);
     bulletWorld->addChild(bulletBox0);
 
-    bulletBox1 = new cBulletBox(bulletWorld, 0.4, 0.8, 0.1);
+    bulletBox1 = new cBulletBox(bulletWorld, size, size, size);
     bulletWorld->addChild(bulletBox1);
 
-    bulletBox2 = new cBulletBox(bulletWorld, 0.4, 0.1, 0.8);
+    bulletBox2 = new cBulletBox(bulletWorld, size, size, size);
     bulletWorld->addChild(bulletBox2);
 
-    // define a material property
-    cMaterial material;
-    material.setBlueCornflower();
-    material.setStiffness(0.3 * maxStiffness);
-    material.setDynamicFriction(0.6);
-    material.setStaticFriction(0.6);
+    bulletBox3 = new cBulletBox(bulletWorld, size, size, size);
+    bulletWorld->addChild(bulletBox3);
 
-    bulletBox0->setMaterial(material);
-    bulletBox1->setMaterial(material);
-    bulletBox2->setMaterial(material);
+    // define some material properties for each cube
+    cMaterial mat0, mat1, mat2, mat3;
+    mat0.setRedIndian();
+    mat0.setStiffness(0.3 * maxStiffness);
+    mat0.setDynamicFriction(0.6);
+    mat0.setStaticFriction(0.6);
+    bulletBox0->setMaterial(mat0);
+
+    mat1.setBlueRoyal();
+    mat1.setStiffness(0.3 * maxStiffness);
+    mat1.setDynamicFriction(0.6);
+    mat1.setStaticFriction(0.6);
+    bulletBox1->setMaterial(mat1);
+
+    mat2.setGreenDarkSea();
+    mat2.setStiffness(0.3 * maxStiffness);
+    mat2.setDynamicFriction(0.6);
+    mat2.setStaticFriction(0.6);
+    bulletBox2->setMaterial(mat2);
+
+    mat3.setRedFireBrick();
+    mat3.setStiffness(0.3 * maxStiffness);
+    mat3.setDynamicFriction(0.6);
+    mat3.setStaticFriction(0.6);
+    bulletBox3->setMaterial(mat3);
 
     // define some mass properties for each cube
     bulletBox0->setMass(0.05);
+    bulletBox1->setMass(0.05);
     bulletBox2->setMass(0.05);
+    bulletBox3->setMass(0.5);
 
     // estimate their inertia properties
     bulletBox0->estimateInertia();
+    bulletBox1->estimateInertia();
     bulletBox2->estimateInertia();
+    bulletBox3->estimateInertia();
 
     // create dynamic models
     bulletBox0->buildDynamicModel();
     bulletBox1->buildDynamicModel();
     bulletBox2->buildDynamicModel();
+    bulletBox3->buildDynamicModel();
 
     // create collision detector for haptic interaction
     bulletBox0->createAABBCollisionDetector(toolRadius);
     bulletBox1->createAABBCollisionDetector(toolRadius);
     bulletBox2->createAABBCollisionDetector(toolRadius);
+    bulletBox3->createAABBCollisionDetector(toolRadius);
 
-    // set position of each object
-    bulletBox0->setLocalPos(0.0, -0.4, 0.0);
-    bulletBox1->setLocalPos(0.0, 0.0, 0.5);
-    bulletBox2->setLocalPos(0.0, 0.4, 0.0);
+    // set friction values
+    bulletBox0->setSurfaceFriction(0.4);
+    bulletBox1->setSurfaceFriction(0.4);
+    bulletBox2->setSurfaceFriction(0.4);
+    bulletBox3->setSurfaceFriction(0.4);
+
+    // set position of each cube
+    bulletBox0->setLocalPos(0.0,-0.6, 0.5);
+    bulletBox1->setLocalPos(0.0, 0.6, 0.5);
+    bulletBox2->setLocalPos(0.0, 0.0, 0.5);
+    bulletBox3->setLocalPos(0.0,-0.6,-0.5);
+
+    // rotate central cube 45 degrees around z-axis
+    bulletBox0->rotateAboutGlobalAxisDeg(0,0,1, 45);
+    bulletBox1->rotateAboutGlobalAxisDeg(0,0,1, 45);
+    bulletBox2->rotateAboutGlobalAxisDeg(0,0,1, 45);
+    bulletBox3->rotateAboutGlobalAxisDeg(0,1,0, 45);
 
 
     //////////////////////////////////////////////////////////////////////////
-    // CREATE ARTICULATION BETWEEN OBJECTS
+    // INVISIBLE WALLS
     //////////////////////////////////////////////////////////////////////////
 
-    hinge0 = new btHingeConstraint(
-        *(bulletBox0->m_bulletRigidBody),
-        btVector3(0.0, 0.0, 0.4),
-        btVector3(1.0, 0.0, 0.0),
-        false);
+    // we create 5 static walls to contain the dynamic objects within a limited workspace
+    double planeWidth = 1.0;
+    bulletInvisibleWall1 = new cBulletStaticPlane(bulletWorld, cVector3d(0.0, 0.0, -1.0), -2.0 * planeWidth);
+    bulletInvisibleWall2 = new cBulletStaticPlane(bulletWorld, cVector3d(0.0, -1.0, 0.0), -planeWidth);
+    bulletInvisibleWall3 = new cBulletStaticPlane(bulletWorld, cVector3d(0.0, 1.0, 0.0), -planeWidth);
+    bulletInvisibleWall4 = new cBulletStaticPlane(bulletWorld, cVector3d(-1.0, 0.0, 0.0), -planeWidth);
+    bulletInvisibleWall5 = new cBulletStaticPlane(bulletWorld, cVector3d(1.0, 0.0, 0.0), -0.8 * planeWidth);
 
-    bulletWorld->m_bulletWorld->addConstraint(hinge0);
 
+    //////////////////////////////////////////////////////////////////////////
+    // GROUND
+    //////////////////////////////////////////////////////////////////////////
 
-    hinge2 = new btHingeConstraint(
-        *(bulletBox2->m_bulletRigidBody),
-        btVector3(0.0, 0.0, 0.4),
-        btVector3(1.0, 0.0, 0.0),
-        false);
+    // create ground plane
+    bulletGround = new cBulletStaticPlane(bulletWorld, cVector3d(0.0, 0.0, 1.0), -planeWidth);
 
-    bulletWorld->m_bulletWorld->addConstraint(hinge2);
+    // add plane to world as we will want to make it visibe
+    bulletWorld->addChild(bulletGround);
+
+    // create a mesh plane where the static plane is located
+    cCreatePlane(bulletGround, 3.0, 3.0, bulletGround->getPlaneConstant() * bulletGround->getPlaneNormal());
+
+    // define some material properties and apply to mesh
+    cMaterial matGround;
+    matGround.setStiffness(0.3 * maxStiffness);
+    matGround.setDynamicFriction(0.2);
+    matGround.setStaticFriction(0.0);
+    matGround.setWhite();
+    matGround.m_emission.setGrayLevel(0.3);
+    bulletGround->setMaterial(matGround);
+
+    // setup collision detector for haptic interaction
+    bulletGround->createAABBCollisionDetector(toolRadius);
+
+    // set friction values
+    bulletGround->setSurfaceFriction(0.4);
 
 
     //-----------------------------------------------------------------------
@@ -588,30 +584,12 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
     {
         if (bulletWorld->getGravity().length() > 0.0)
         {
-            bulletWorld->setGravity(cVector3d(0.0, 0.0, 0.0));
+            bulletWorld->setGravity(0.0, 0.0, 0.0);
         }
         else
         {
-            bulletWorld->setGravity(cVector3d(0.0, 0.0, -9.81));
+            bulletWorld->setGravity(0.0, 0.0,-9.8);
         }
-    }
-
-    // options - enable or disable controller
-    else if (a_key == GLFW_KEY_C)
-    {
-        controllerEnabled = !controllerEnabled;
-    }
-
-    // option - decrease desired joint angle
-    else if (a_key == GLFW_KEY_1)
-    {
-        angPosDes = cMax(cDegToRad(-90), angPosDes - cDegToRad(5.0));
-    }
-
-    // option - increase desired joint angle
-    else if (a_key == GLFW_KEY_2)
-    {
-        angPosDes = cMin(cDegToRad(90), angPosDes + cDegToRad(5.0));
     }
 
     // option - toggle fullscreen
@@ -685,19 +663,6 @@ void updateGraphics(void)
     // update position of label
     labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
 
-    // update controller information
-    if (controllerEnabled)
-    {
-        labelInfo->setText("controller enabled - desired position (deg): " + cStr(cRadToDeg(angPosDes), 0));
-    }
-    else
-    {
-        labelInfo->setText("controller disabled - press key 'c' to enable");
-    }
-
-    // update position of label
-    labelInfo->setLocalPos((int)(0.5 * (width - labelInfo->getWidth())), 45);
-
 
     /////////////////////////////////////////////////////////////////////
     // RENDER SCENE
@@ -769,30 +734,6 @@ void updateHaptics(void)
 
 
         /////////////////////////////////////////////////////////////////////
-        // SIMPLE JOINT CONTROLLER
-        /////////////////////////////////////////////////////////////////////
-
-        if (controllerEnabled)
-        {
-            double Kp = 100;
-            double Kv = 10;
-
-            // get joint position
-            double angPos = hinge0->getHingeAngle();
-
-            // get joint velocity
-            btVector3 angVelocity = bulletBox0->m_bulletRigidBody->getAngularVelocity();
-            double angVel = angVelocity[0];
-
-            // compute desired torque
-            double torque = Kp * (angPosDes - angPos) -Kv * angVel;
-
-            // apply desired torque
-            bulletBox0->addExternalTorque(cVector3d(torque, 0.0, 0.0));
-        }
-
-
-        /////////////////////////////////////////////////////////////////////
         // DYNAMIC SIMULATION
         /////////////////////////////////////////////////////////////////////
 
@@ -829,7 +770,7 @@ void updateHaptics(void)
 
         // update simulation
         bulletWorld->updateDynamics(timeInterval);
-        
+
         next = next + std::chrono::microseconds(1000);
         std::this_thread::sleep_until(next);
     }

@@ -36,7 +36,7 @@
     POSSIBILITY OF SUCH DAMAGE. 
 
     \author    <http://www.chai3d.org>
-    \author    Your name, institution, or company name.
+    \author    Siddharth Deore, IIT.IT
     \version   3.2.0 $Rev: 1875 $
 */
 //==============================================================================
@@ -44,12 +44,14 @@
 //------------------------------------------------------------------------------
 #ifndef CMyCustomDeviceH
 #define CMyCustomDeviceH
+#define C_ENABLE_CUSTOM_DEVICE_SUPPORT
 //------------------------------------------------------------------------------
 #if defined(C_ENABLE_CUSTOM_DEVICE_SUPPORT)
 //------------------------------------------------------------------------------
 #include "devices/CGenericHapticDevice.h"
 //------------------------------------------------------------------------------
-
+#include "socket/UdpSocket.h"
+#include "socket/packet.h"
 //------------------------------------------------------------------------------
 namespace chai3d {
 //------------------------------------------------------------------------------
@@ -188,6 +190,11 @@ protected:
 
     //! A short description of my variable
     int m_MyVariable;
+
+    // receive and send packets
+    packet::joystick::ToM2slave pkt_master_to_joystick_;
+    packet::joystick::slave2ToM pkt_joystick_to_master_;
+    ToM::ISocket< packet::joystick::ToM2slave,packet::joystick::slave2ToM>::ptr sock_joystick_;
 };
 
 //------------------------------------------------------------------------------

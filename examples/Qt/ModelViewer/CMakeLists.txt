@@ -41,6 +41,9 @@
 cmake_minimum_required (VERSION 3.0.0)
 project (ModelViewer)
 
+
+add_definitions(-w)
+set(CMAKE_CXX_STANDARD 14) # for smart pointers
 # chai3d dependency
 find_package (CHAI3D 3.2 REQUIRED)
 include_directories (${CHAI3D_INCLUDE_DIRS})

@@ -51,7 +51,8 @@ using namespace std;
 //---------------------------------------------------------------------------
 #include "CBullet.h"
 //---------------------------------------------------------------------------
-
+#include <chrono>
+#include <thread>
 //---------------------------------------------------------------------------
 // GENERAL SETTINGS
 //---------------------------------------------------------------------------
@@ -792,6 +793,7 @@ void updateHaptics(void)
     cMatrix3d prevRotTool;
     prevRotTool.identity();
 
+    auto next = std::chrono::high_resolution_clock::now();
     // main haptic simulation loop
     while(simulationRunning)
     {
@@ -865,6 +867,9 @@ void updateHaptics(void)
 
         // update simulation
         bulletWorld->updateDynamics(nextSimInterval);
+        
+        next = next + std::chrono::microseconds(1000);
+        std::this_thread::sleep_until(next);
     }
 
     // exit haptics thread
