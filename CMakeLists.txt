@@ -228,9 +228,9 @@ endif ()
 #
 
 # examples
-if (EXISTS ${PROJECT_SOURCE_DIR}/examples)
-  add_subdirectory (${PROJECT_SOURCE_DIR}/examples)
-endif ()
+#if (EXISTS ${PROJECT_SOURCE_DIR}/examples)
+#  add_subdirectory (${PROJECT_SOURCE_DIR}/examples)
+#endif ()
 
 # utilities
 if (EXISTS ${PROJECT_SOURCE_DIR}/utils)

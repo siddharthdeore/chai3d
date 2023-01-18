@@ -66,7 +66,8 @@ cBulletBox* bulletBox0;
 cBulletBox* bulletBox1;
 cBulletBox* bulletBox2;
 cBulletBox* bulletBox3;
-
+cBulletMesh* bulletRing0;
+cBulletMesh* bulletCylinder0;
 // bullet static walls and ground
 cBulletStaticPlane* bulletInvisibleWall1;
 cBulletStaticPlane* bulletInvisibleWall2;
@@ -240,7 +241,7 @@ int main(int argc, char* argv[])
     bulletWorld->addChild(camera);
 
     // position and orient the camera
-    camera->set(cVector3d (2.5, 0.0, 0.3),    // camera position (eye)
+    camera->set(cVector3d (0.0, 2.5, 0.0),    // camera position (eye)
                 cVector3d (0.0, 0.0,-0.5),    // lookat position (target)
                 cVector3d (0.0, 0.0, 1.0));   // direction of the "up" vector
 
@@ -322,7 +323,7 @@ int main(int argc, char* argv[])
     tool->setWorkspaceRadius(1.3);
 
     // define a radius for the virtual tool contact points (sphere)
-    double toolRadius = 0.02;
+    double toolRadius = 0.04;
     tool->setRadius(toolRadius, toolRadius);
 
     // enable if objects in the scene are going to rotate of translate
@@ -374,7 +375,7 @@ int main(int argc, char* argv[])
     //////////////////////////////////////////////////////////////////////////
     // 3 BULLET BLOCKS
     //////////////////////////////////////////////////////////////////////////
-    double size = 0.4;
+    double size = 0.3;
 
     // create three objects that are added to the world
     bulletBox0 = new cBulletBox(bulletWorld, size, size, size);
@@ -388,6 +389,13 @@ int main(int argc, char* argv[])
 
     bulletBox3 = new cBulletBox(bulletWorld, size, size, size);
     bulletWorld->addChild(bulletBox3);
+
+    bulletRing0 = new cBulletMesh(bulletWorld);
+    bulletWorld->addChild(bulletRing0);
+    bulletCylinder0 = new cBulletMesh(bulletWorld);
+    bulletWorld->addChild(bulletCylinder0);
+    cCreateCylinder(bulletCylinder0, 0.6, 0.1, 16, 1, 1, true, true, cVector3d(0.0, 0.0,-0.3));
+    cCreateRing(bulletRing0, 0.1, 0.4, 16, 16);
 
     // define some material properties for each cube
     cMaterial mat0, mat1, mat2, mat3;
@@ -415,35 +423,48 @@ int main(int argc, char* argv[])
     mat3.setStaticFriction(0.6);
     bulletBox3->setMaterial(mat3);
 
+    bulletRing0->setMaterial(mat0, true);
+    bulletCylinder0->setMaterial(mat1, true);
     // define some mass properties for each cube
-    bulletBox0->setMass(0.05);
-    bulletBox1->setMass(0.05);
-    bulletBox2->setMass(0.05);
+    bulletBox0->setMass(0.3);
+    bulletBox1->setMass(0.3);
+    bulletBox2->setMass(0.3);
     bulletBox3->setMass(0.5);
+    bulletRing0->setMass(0.05);
+    bulletCylinder0->setMass(0.05);
 
+    // create contact model
+    bulletRing0->buildContactTriangles(0.001);
+    bulletCylinder0->buildContactTriangles(0.001);
     // estimate their inertia properties
     bulletBox0->estimateInertia();
     bulletBox1->estimateInertia();
     bulletBox2->estimateInertia();
     bulletBox3->estimateInertia();
+    bulletRing0->estimateInertia();
+    bulletCylinder0->estimateInertia();
 
     // create dynamic models
     bulletBox0->buildDynamicModel();
     bulletBox1->buildDynamicModel();
     bulletBox2->buildDynamicModel();
     bulletBox3->buildDynamicModel();
+    bulletRing0->buildDynamicModel();
+    bulletCylinder0->buildDynamicModel();
 
     // create collision detector for haptic interaction
     bulletBox0->createAABBCollisionDetector(toolRadius);
     bulletBox1->createAABBCollisionDetector(toolRadius);
     bulletBox2->createAABBCollisionDetector(toolRadius);
     bulletBox3->createAABBCollisionDetector(toolRadius);
+    bulletRing0->createAABBCollisionDetector(toolRadius);
+    bulletCylinder0->createAABBCollisionDetector(toolRadius);
 
     // set friction values
-    bulletBox0->setSurfaceFriction(0.4);
-    bulletBox1->setSurfaceFriction(0.4);
-    bulletBox2->setSurfaceFriction(0.4);
-    bulletBox3->setSurfaceFriction(0.4);
+    bulletBox0->setSurfaceFriction(0.4*4.0);
+    bulletBox1->setSurfaceFriction(0.4*4.0);
+    bulletBox2->setSurfaceFriction(0.4*4.0);
+    bulletBox3->setSurfaceFriction(0.4*4.0);
 
     // set position of each cube
     bulletBox0->setLocalPos(0.0,-0.6, 0.5);

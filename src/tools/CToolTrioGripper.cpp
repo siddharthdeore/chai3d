@@ -2,7 +2,8 @@
 #include "tools/CToolTrioGripper.h"
 #include "graphics/CTriangleArray.h"
 //------------------------------------------------------------------------------
-
+#include <iostream>
+#include <iomanip>
 //------------------------------------------------------------------------------
 namespace chai3d {
 //------------------------------------------------------------------------------
@@ -59,35 +60,28 @@ void cToolTrioGripper::computeInteractionForces()
 {
     // convert the angle of the gripper into a position in device coordinates. 
     // this value is device dependent.
-    double gripperPositionFinger0 = 0.0; // index fingure position
-    double gripperPositionFinger1 = 0.0; // middle fingure position
-    double gripperPositionThumb  = 0.0;  // thumb position
+    static double gripperPositionFinger0; // index fingure position
+    static double gripperPositionFinger1; // middle fingure position
+    static double gripperPositionThumb;  // thumb position
 
-    gripperPositionFinger0 = 0.100 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
-    gripperPositionFinger1 = 0.100 * cSinRad( m_gripperAngle + cDegToRad( 1.0));
-    gripperPositionThumb  = 0.100 * cSinRad(-m_gripperAngle + cDegToRad(-1.0));
+    gripperPositionFinger0 = 0.05 * (1.0-m_gripperAngle);//cSinRad( 1 - m_gripperAngle + cDegToRad( 0.0));
+    gripperPositionFinger1 = 0.05 * (1.0-m_gripperAngle);//cSinRad( 1 - m_gripperAngle + cDegToRad( 0.0));
+    gripperPositionThumb  = 0.05  * (1.0-m_gripperAngle);//cSinRad( 1 - m_gripperAngle + cDegToRad( 0.0));
 
     // compute new position of thumb and finger 
-    cVector3d lineFingerThumb = getGlobalRot().getCol1();    
-    cVector3d lineFingerMid = getGlobalRot().getCol0();
+    cVector3d dir_thumb = cVector3d(1,0,0);
+    cVector3d dir_fingure_0 = cVector3d(-0.5, 0.8660254037844387,0.0);
+    cVector3d dir_fingure_1 = cVector3d(-0.5,-0.8660254037844387,0.0);
 
-    cVector3d pFinger0 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger0 * lineFingerThumb;
-    cVector3d pFinger1 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger1 * lineFingerMid;
-    cVector3d pThumb  = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionThumb  * lineFingerThumb;
+    cVector3d pFinger0 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger0 * dir_thumb;
+    cVector3d pFinger1 = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionFinger1 * dir_fingure_0;
+    cVector3d pThumb  = m_gripperWorkspaceScale * m_workspaceScaleFactor * gripperPositionThumb  * dir_fingure_1;
 
     cVector3d posFinger0, posFinger1, posThumb;
-    if (m_hapticDevice->m_specifications.m_rightHand)
-    {
-        posFinger0 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger0));
-        posFinger1 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger1));
-        posThumb = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pThumb));
-    }
-    else
-    {
-        posFinger0 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger0));
-        posFinger1 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger1));
-        posThumb  = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (-1.0 * pThumb));
-    }
+ 
+    posFinger0 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger0));
+    posFinger1 = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pFinger1));
+    posThumb = m_deviceGlobalPos + cMul(m_deviceGlobalRot, (1.0 * pThumb));
 
     // compute forces
     cVector3d forceThumb = m_hapticPointThumb->computeInteractionForces(posThumb, 

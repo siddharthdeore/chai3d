@@ -384,7 +384,7 @@ int main(int argc, char* argv[])
     hapticDevice->setEnableGripperUserSwitch(true);
 
     // create a 3D tool and add it to the world
-    tool = new cToolCursor(bulletWorld);
+    tool = new cToolTrioGripper(bulletWorld);
     bulletWorld->addChild(tool);
 
     // connect the haptic device to the tool

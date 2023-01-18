@@ -107,14 +107,14 @@ namespace chai3d
         //--------------------------------------------------------------------------
 
         // the maximum force [N] the device can produce along the x,y,z axis.
-        m_specifications.m_maxLinearForce = 5.0; // [N]
+        m_specifications.m_maxLinearForce = 50.0; // [N]
 
         // the maximum amount of torque your device can provide arround its
         // rotation degrees of freedom.
         m_specifications.m_maxAngularTorque = 0.2; // [N*m]
 
         // the maximum amount of torque which can be provided by your gripper
-        m_specifications.m_maxGripperForce = 3.0; // [N]
+        m_specifications.m_maxGripperForce = 30.0; // [N]
 
         // the maximum closed loop linear stiffness in [N/m] along the x,y,z axis
         m_specifications.m_maxLinearStiffness = 1000.0; // [N/m]
@@ -123,7 +123,7 @@ namespace chai3d
         m_specifications.m_maxAngularStiffness = 1.0; // [N*m/Rad]
 
         // the maximum amount of stiffness supported by the gripper
-        m_specifications.m_maxGripperLinearStiffness = 1000; // [N*m]
+        m_specifications.m_maxGripperLinearStiffness = 10000; // [N*m]
 
         // the radius of the physical workspace of the device (x,y,z axis)
         m_specifications.m_workspaceRadius = 0.2; // [m]
@@ -143,7 +143,7 @@ namespace chai3d
         ////////////////////////////////////////////////////////////////////////////
 
         // Maximum recommended linear damping factor Kv
-        m_specifications.m_maxLinearDamping = 20.0; // [N/(m/s)]
+        m_specifications.m_maxLinearDamping = 200.0; // [N/(m/s)]
 
         //! Maximum recommended angular damping factor Kv (if actuated torques are available)
         m_specifications.m_maxAngularDamping = 0.0; // [N*m/(Rad/s)]
@@ -206,15 +206,37 @@ namespace chai3d
 
         // *** INSERT YOUR CODE HERE ***
         m_MyVariable = 0;
-        sock_joystick_ = std::make_unique<ToM::UdpSocket<packet::joystick::ToM2slave, packet::joystick::slave2ToM>>();
-        sock_joystick_->sock_init();
+
+#ifdef WITH_REMOTE_ARM
+        // GUI is acting as TeleopMan like device, receive from tom and send to tom
+        sock_device_ = std::make_unique<ToM::UdpSocket<packet::manipulator::ToM2slave>>();
+        sock_device_send = std::make_unique<ToM::UdpSocket<packet::manipulator::slave2ToM>>();
+        sock_device_->sock_init();
+        sock_device_->sock_bind("10.24.8.4", 2001); // bind local
+        sock_device_send->sock_init();
+        // Remote Address and Port, In this case ToM
+        sock_device_send->sock_connect("10.24.8.3", 2002); // connect remote
+        m_device_rotation.setIdentity();
+        m_position.setZero();
+#else
+        sock_device_ = std::make_unique<ToM::UdpSocket<packet::joystick::ToM2slave, packet::joystick::slave2ToM>>();
+        sock_device_->sock_init();
+#endif
+
+#ifdef WITH_REMOTE_ARM
+#else
         size_t send_buffer_size = sizeof(packet::joystick::slave2ToM);
         size_t recv_buffer_size = sizeof(packet::joystick::ToM2slave);
-        sock_joystick_->set_recv_buf(send_buffer_size);
-        // I shall load it from yaml
-        sock_joystick_->sock_bind("127.0.0.1", 5556); // This is Remote address of ToM
+        sock_device_->set_recv_buf(send_buffer_size);
+#endif;
+
+// I shall load it from yaml
+#ifdef WITH_REMOTE_ARM
+#else
+        sock_device_->sock_bind("127.0.0.1", 5556); // This is Remote address of ToM
         // Remote Address and Port, In this case ToM
-        sock_joystick_->sock_connect("127.0.0.1", 5555); // This is Local address of
+        sock_device_->sock_connect("127.0.0.1", 5555); // This is Local address of
+#endif
 
         m_deviceAvailable = true; // this value should become 'true' when the device is available.
     }
@@ -388,6 +410,7 @@ namespace chai3d
         ////////////////////////////////////////////////////////////////////////////
 
         // *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
+        // sock_device_->sock_send(pkt_slave_to_master_);
 
         int numberOfDevices = 1; // At least set to 1 if a device is available.
 
@@ -429,20 +452,44 @@ namespace chai3d
         ////////////////////////////////////////////////////////////////////////////
 
         bool result = C_SUCCESS;
-        static double x, y, z;
 
-        // *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
+#ifdef WITH_REMOTE_ARM
 
-        if (sock_joystick_->sock_receive(pkt_joystick_to_master_) > 0)
+        pkt_slave_to_master_.position_ee[0] = m_position.x();
+        pkt_slave_to_master_.position_ee[1] = m_position.y();
+        pkt_slave_to_master_.position_ee[2] = m_position.z();
+
+        pkt_slave_to_master_.quaternion_ee[0] = m_device_rotation.x();
+        pkt_slave_to_master_.quaternion_ee[1] = m_device_rotation.y();
+        pkt_slave_to_master_.quaternion_ee[2] = m_device_rotation.z();
+        pkt_slave_to_master_.quaternion_ee[3] = m_device_rotation.w();
+
+        pkt_slave_to_master_.cmd_position_ee[0] = pkt_master_to_slave_.position_ee[0];
+        pkt_slave_to_master_.cmd_position_ee[1] = pkt_master_to_slave_.position_ee[1];
+        pkt_slave_to_master_.cmd_position_ee[2] = pkt_master_to_slave_.position_ee[2];
+
+        pkt_slave_to_master_.cmd_quaternion_ee[0] = pkt_slave_to_master_.quaternion_ee[0];
+        pkt_slave_to_master_.cmd_quaternion_ee[1] = pkt_slave_to_master_.quaternion_ee[1];
+        pkt_slave_to_master_.cmd_quaternion_ee[2] = pkt_slave_to_master_.quaternion_ee[2];
+        pkt_slave_to_master_.cmd_quaternion_ee[3] = pkt_slave_to_master_.quaternion_ee[3];
+        sock_device_send->sock_send(pkt_slave_to_master_);
+        if (sock_device_->sock_receive(pkt_master_to_slave_) > 0)
         {
-            x = 0.15 * pkt_joystick_to_master_.axis[1] / 32768.0;       // x = getMyDevicePositionX()
-            y = 0.15 * pkt_joystick_to_master_.axis[0] / 32768.0;       // y = getMyDevicePositionY()
-            z = -0.15 * pkt_joystick_to_master_.axis[3] / 32768.0; // z = getMyDevicePositionZ()
+            // std::cout << pkt_slave_to_master_.position_ee[0] << std::endl;
+            m_position.x() = 0.3 * pkt_master_to_slave_.position_ee[0]; // x = getMyDevicePositionX()
+            m_position.y() = 0.3 * pkt_master_to_slave_.position_ee[1]; // y = getMyDevicePositionY()
+            m_position.z() = 0.3 * pkt_master_to_slave_.position_ee[2]; // z = getMyDevicePositionZ()
         }
-
+#else
+        if (sock_device_->sock_receive(pkt_slave_to_master_) > 0)
+        {
+            x = 0.15 * pkt_slave_to_master_.axis[1] / 32768.0;  // x = getMyDevicePositionX()
+            y = 0.15 * pkt_slave_to_master_.axis[0] / 32768.0;  // y = getMyDevicePositionY()
+            z = -0.15 * pkt_slave_to_master_.axis[3] / 32768.0; // z = getMyDevicePositionZ()
+        }
+#endif
         // store new position values
-        a_position.set(x, y, z);
-        
+        a_position.set(m_position.x(), m_position.y(), m_position.z());
 
         // estimate linear velocity
         estimateLinearVelocity(a_position);
@@ -490,14 +537,32 @@ namespace chai3d
         bool result = C_SUCCESS;
 
         // variables that describe the rotation matrix
-        double r00, r01, r02, r10, r11, r12, r20, r21, r22;
         cMatrix3d frame;
         frame.identity();
 
         // *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
 
+#ifdef WITH_REMOTE_ARM
+        Eigen::Quaterniond temp_q = Eigen::Quaterniond(pkt_master_to_slave_.quaternion_ee[3],
+                                                       pkt_master_to_slave_.quaternion_ee[0],
+                                                       pkt_master_to_slave_.quaternion_ee[1],
+                                                       pkt_master_to_slave_.quaternion_ee[2]);
+        if (temp_q.norm() > 0.9)
+        {
+            const Eigen::Matrix3d Rot = m_device_rotation.toRotationMatrix();
+            frame.set(Rot(0, 0), Rot(0, 1), Rot(0, 2), Rot(1, 0), Rot(1, 1), Rot(1, 2), Rot(2, 0), Rot(2, 1), Rot(2, 2));
+            m_device_rotation = m_device_rotation.slerp(0.1, temp_q);
+        }
+        else
+        {
+            const Eigen::Matrix3d Rot = m_device_rotation.toRotationMatrix();
+            frame.set(Rot(0, 0), Rot(0, 1), Rot(0, 2), Rot(1, 0), Rot(1, 1), Rot(1, 2), Rot(2, 0), Rot(2, 1), Rot(2, 2));
+        }
+
+#else
         // if the device does not provide any rotation capabilities
         // set the rotation matrix equal to the identity matrix.
+        double r00, r01, r02, r10, r11, r12, r20, r21, r22;
         r00 = 1.0;
         r01 = 0.0;
         r02 = 0.0;
@@ -507,8 +572,8 @@ namespace chai3d
         r20 = 0.0;
         r21 = 0.0;
         r22 = 1.0;
-
         frame.set(r00, r01, r02, r10, r11, r12, r20, r21, r22);
+#endif
 
         // store new rotation matrix
         a_rotation = frame;
@@ -547,10 +612,14 @@ namespace chai3d
 
         bool result = C_SUCCESS;
 
-        // *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
+// *** INSERT YOUR CODE HERE, MODIFY CODE below ACCORDINGLY ***
 
-        // return gripper angle in radian
-        a_angle = cDegToRad(30.0*(pkt_joystick_to_master_.axis[2]/32768.0)); // a_angle = getGripperAngleInRadianFromMyDevice();
+// return gripper angle in radian
+#ifdef WITH_REMOTE_ARM
+        a_angle = (pkt_master_to_slave_.closure_cmd_fingers[0]);
+#else
+        a_angle = cDegToRad(30.0 * (pkt_slave_to_master_.axis[2] / 32768.0)); // a_angle = getGripperAngleInRadianFromMyDevice();
+#endif
 
         // estimate gripper velocity
         estimateGripperVelocity(a_angle);

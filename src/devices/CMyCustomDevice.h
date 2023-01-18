@@ -50,8 +50,14 @@
 //------------------------------------------------------------------------------
 #include "devices/CGenericHapticDevice.h"
 //------------------------------------------------------------------------------
+#define VERBOSE 1
 #include "socket/UdpSocket.h"
+#define WITH_REMOTE_ARM 1
+#ifdef WITH_REMOTE_ARM
+#include "socket/packet_ra.h"
+#else
 #include "socket/packet.h"
+#endif
 //------------------------------------------------------------------------------
 namespace chai3d {
 //------------------------------------------------------------------------------
@@ -190,11 +196,22 @@ protected:
 
     //! A short description of my variable
     int m_MyVariable;
-
+    
+    #ifdef WITH_REMOTE_ARM
+    #include "socket/packet_ra.h"
+    packet::manipulator::ToM2slave pkt_master_to_slave_;
+    packet::manipulator::slave2ToM pkt_slave_to_master_;
+    ToM::ISocket< packet::manipulator::slave2ToM>::ptr sock_device_send;
+    ToM::ISocket< packet::manipulator::ToM2slave>::ptr sock_device_;
+    Eigen::Quaterniond m_device_rotation;
+    Eigen::Vector3d m_position;
+    #else
+    #include "socket/packet.h"
+    packet::joystick::ToM2slave pkt_master_to_slave_;
+    packet::joystick::slave2ToM pkt_slave_to_master_;
+    ToM::ISocket< packet::joystick::ToM2slave,packet::joystick::slave2ToM>::ptr sock_device_;
+    #endif
     // receive and send packets
-    packet::joystick::ToM2slave pkt_master_to_joystick_;
-    packet::joystick::slave2ToM pkt_joystick_to_master_;
-    ToM::ISocket< packet::joystick::ToM2slave,packet::joystick::slave2ToM>::ptr sock_joystick_;
 };
 
 //------------------------------------------------------------------------------
