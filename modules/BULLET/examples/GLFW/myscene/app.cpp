@@ -93,6 +93,21 @@ cFrequencyCounter freqCounterGraphics;
 // a frequency counter to measure the simulation haptic rate
 cFrequencyCounter freqCounterHaptics;
 
+//------------------------------------------------------------------------------
+// STATES
+//------------------------------------------------------------------------------
+enum MouseState
+{
+    MOUSE_IDLE,
+    MOUSE_MOVE_CAMERA
+};
+
+// mouse state
+MouseState mouseState = MOUSE_IDLE;
+
+// last mouse position
+double mouseX, mouseY;
+
 // haptic thread
 cThread* hapticsThread;
 
@@ -121,6 +136,15 @@ void errorCallback(int error, const char* a_description);
 
 // callback when a key is pressed
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
+
+// callback to handle mouse click
+void mouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods);
+
+// callback to handle mouse motion
+void mouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY);
+
+// callback to handle mouse scroll
+void mouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY);
 
 // this function renders the scene
 void updateGraphics(void);
@@ -208,6 +232,15 @@ int main(int argc, char* argv[])
 
     // set resize callback
     glfwSetWindowSizeCallback(window, windowSizeCallback);
+
+    // set mouse position callback
+    glfwSetCursorPosCallback(window, mouseMotionCallback);
+
+    // set mouse button callback
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+
+    // set mouse scroll callback
+    glfwSetScrollCallback(window, mouseScrollCallback);
 
     // set current display context
     glfwMakeContextCurrent(window);
@@ -650,6 +683,98 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
         camera->setMirrorVertical(mirroredDisplay);
     }
 }
+
+//------------------------------------------------------------------------------
+
+void mouseButtonCallback(GLFWwindow* a_window, int a_button, int a_action, int a_mods)
+{
+    if (a_button == GLFW_MOUSE_BUTTON_LEFT && a_action == GLFW_PRESS)
+    {
+        // update mouse state
+        mouseState = MOUSE_IDLE;
+
+        // store mouse position
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        // check for collision
+        cCollisionRecorder recorder;
+        cCollisionSettings settings;
+
+        bool hit = camera->selectWorld(mouseX, (height - mouseY), width, height, recorder, settings);
+        if (hit)
+        {
+            /* check if hit involves voxel object
+            if (recorder.m_nearestCollision.m_object == object)
+            {
+                // get selected voxel
+                int voxelX = recorder.m_nearestCollision.m_voxelIndexX;
+                int voxelY = recorder.m_nearestCollision.m_voxelIndexY;
+                int voxelZ = recorder.m_nearestCollision.m_voxelIndexZ;
+
+                // set color to black
+                cColorb color(0x00, 0x00, 0x00, 0x00);
+
+                // set color to voxel
+                object->m_texture->m_image->setVoxelColor(voxelX, voxelY, voxelZ, color);
+
+                // update voxel data
+                object->m_texture->markForUpdate();
+            }
+            */
+        }
+    }
+
+    else if (a_button == GLFW_MOUSE_BUTTON_RIGHT && a_action == GLFW_PRESS)
+    {
+        // store mouse position
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        // update mouse state
+        mouseState = MOUSE_MOVE_CAMERA;
+    }
+
+    else
+    {
+        // update mouse state
+        mouseState = MOUSE_IDLE;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+void mouseMotionCallback(GLFWwindow* a_window, double a_posX, double a_posY)
+{
+    if (mouseState == MOUSE_MOVE_CAMERA)
+    {
+        // compute mouse motion
+        int dx = a_posX - mouseX;
+        int dy = a_posY - mouseY;
+        mouseX = a_posX;
+        mouseY = a_posY;
+
+        // compute new camera angles
+        double azimuthDeg = camera->getSphericalAzimuthDeg() - 0.5 * dx;
+        double polarDeg = camera->getSphericalPolarDeg() - 0.5 * dy;
+
+        // assign new angles
+        camera->setSphericalAzimuthDeg(azimuthDeg);
+        camera->setSphericalPolarDeg(polarDeg);
+
+        // oriente tool with camera
+        tool->setLocalRot(camera->getLocalRot());
+    }
+}
+
+//------------------------------------------------------------------------------
+
+void mouseScrollCallback(GLFWwindow* a_window, double a_offsetX, double a_offsetY)
+{
+    double r = camera->getSphericalRadius();
+    r = cClamp(r + 0.1 * a_offsetY, 0.5, 3.0);
+    camera->setSphericalRadius(r);
+}
+
+//------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------
 
