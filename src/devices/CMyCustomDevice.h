@@ -203,9 +203,9 @@ protected:
     packet::manipulator::slave2ToM pkt_slave_to_master_;
     ToM::ISocket< packet::manipulator::slave2ToM>::ptr sock_device_send;
     ToM::ISocket< packet::manipulator::ToM2slave>::ptr sock_device_;
+    #else
     Eigen::Quaterniond m_device_rotation;
     Eigen::Vector3d m_position;
-    #else
     #include "socket/packet.h"
     packet::joystick::ToM2slave pkt_master_to_slave_;
     packet::joystick::slave2ToM pkt_slave_to_master_;

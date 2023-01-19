@@ -483,9 +483,9 @@ namespace chai3d
 #else
         if (sock_device_->sock_receive(pkt_slave_to_master_) > 0)
         {
-            x = 0.15 * pkt_slave_to_master_.axis[1] / 32768.0;  // x = getMyDevicePositionX()
-            y = 0.15 * pkt_slave_to_master_.axis[0] / 32768.0;  // y = getMyDevicePositionY()
-            z = -0.15 * pkt_slave_to_master_.axis[3] / 32768.0; // z = getMyDevicePositionZ()
+            m_position.x() =-0.15 * pkt_slave_to_master_.axis[0] / 32768.0;  // x = getMyDevicePositionX()
+            m_position.y() = 0.15 * pkt_slave_to_master_.axis[1] / 32768.0;  // y = getMyDevicePositionY()
+            m_position.z() =-0.15 * pkt_slave_to_master_.axis[3] / 32768.0; // z = getMyDevicePositionZ()
         }
 #endif
         // store new position values
@@ -618,7 +618,7 @@ namespace chai3d
 #ifdef WITH_REMOTE_ARM
         a_angle = (pkt_master_to_slave_.closure_cmd_fingers[0]);
 #else
-        a_angle = cDegToRad(30.0 * (pkt_slave_to_master_.axis[2] / 32768.0)); // a_angle = getGripperAngleInRadianFromMyDevice();
+        a_angle = double(pkt_slave_to_master_.buttonBits & 1); // a_angle = getGripperAngleInRadianFromMyDevice();
 #endif
 
         // estimate gripper velocity
